@@ -1,0 +1,55 @@
+# Node.js / Next.js (Client)
+Client/node_modules/
+Client/.next/
+Client/.env
+Client/.env.local
+Client/.env.development
+Client/.env.production
+Client/.env.test
+Client/npm-debug.log*
+Client/yarn-debug.log*
+Client/yarn-error.log*
+Client/pnpm-lock.yaml
+Client/package-lock.json
+
+# Golang (Server)
+Server/bin/
+Server/obj/
+Server/*.exe
+Server/*.test
+Server/coverage.out
+Server/.env
+Server/.DS_Store
+
+# Go workspace files
+Server/go.sum
+Server/go.work
+Server/go.work.sum
+
+# OS generated
+.DS_Store
+Thumbs.db
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Global logs
+*.log
+
+# Optional: Git hooks
+.husky/
+
+# Optional: Docker
+docker-compose.override.yml
+*.local.yml
+.env*
+
+# Optional: Secrets
+secrets.*
+config/*.secret.*
+*.key
+*.pem
+*.crt
