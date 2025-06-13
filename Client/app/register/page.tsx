@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -12,6 +12,8 @@ import { Progress } from '@/components/ui/progress';
 import { Link as LinkIcon, Loader2, Eye, EyeOff, Check, X, Zap, Shield, Globe } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/auth-context';
 
 const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -33,7 +35,13 @@ export default function RegisterPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [registrationStep, setRegistrationStep] = useState(0);
   const [isSuccess, setIsSuccess] = useState(false);
-
+  const { register: registerUser, user, isLoading: authLoading } = useAuth();
+  const router = useRouter();
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.push('/dashboard');
+    }
+  }, [user, authLoading, router]);
   const form = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
@@ -67,14 +75,15 @@ export default function RegisterPage() {
     setRegistrationStep(1);
     
     try {
+      await registerUser(data.name, data.email, data.password);
       // Simulate registration steps
-      await new Promise(resolve => setTimeout(resolve, 800));
+      await new Promise(resolve => setTimeout(resolve, 500));
       setRegistrationStep(2);
       
-      await new Promise(resolve => setTimeout(resolve, 800));
+      await new Promise(resolve => setTimeout(resolve, 500));
       setRegistrationStep(3);
       
-      await new Promise(resolve => setTimeout(resolve, 800));
+      await new Promise(resolve => setTimeout(resolve, 500));
       setIsSuccess(true);
       
       toast.success('Account created successfully!', {
@@ -83,7 +92,7 @@ export default function RegisterPage() {
       
       // Redirect after success animation
       setTimeout(() => {
-        window.location.href = '/dashboard';
+        window.location.reload();
       }, 2000);
       
     } catch (error: any) {

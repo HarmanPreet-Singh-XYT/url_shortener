@@ -30,10 +30,12 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 
 interface LinkListProps {
   refreshTrigger: number;
+  links: Link[];
+  setLinks: React.Dispatch<React.SetStateAction<Link[]>>;
 }
 
-export function LinkList({ refreshTrigger }: LinkListProps) {
-  const [links, setLinks] = useState<Link[]>([]);
+export function LinkList({ refreshTrigger,links,setLinks }: LinkListProps) {
+  
   const [isLoading, setIsLoading] = useState(true);
   const [deletingSlug, setDeletingSlug] = useState<string | null>(null);
   const [togglingSlug, setTogglingSlug] = useState<string | null>(null);
@@ -44,7 +46,7 @@ export function LinkList({ refreshTrigger }: LinkListProps) {
   const fetchLinks = async () => {
     try {
       const fetchedLinks = await linkService.getLinks();
-      setLinks(fetchedLinks);
+      fetchedLinks != null && setLinks(fetchedLinks);
     } catch (error: any) {
       toast.error('Failed to fetch links', {
         description: error.response?.data?.message || 'Please try again',

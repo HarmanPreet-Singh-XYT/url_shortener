@@ -20,35 +20,69 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserInfoReq | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const initializeAuth = async () => {
-    if (authService.isAuthenticated()) {
-      try {
-        const userProfile = await authService.getProfile();
-        setUser(userProfile);
-      } catch (error) {
-        console.error('Failed to get user profile:', error);
-        await authService.logout();
-      }
-    }
-    setIsLoading(false);
-  };
   useEffect(() => {
+    const initializeAuth = async () => {
+      console.log('🔍 Initializing auth...');
+      
+      if (authService.isAuthenticated()) {
+        console.log('🔑 Token found, fetching profile...');
+        try {
+          const userProfile = await authService.getProfile();
+          console.log('✅ Profile fetched successfully:', userProfile);
+          setUser(userProfile);
+        } catch (error) {
+          console.error('❌ Failed to get user profile:', error);
+          console.log('🧹 Clearing invalid tokens...');
+          await authService.logout();
+          setUser(null);
+        }
+      } else {
+        console.log('🚫 No token found');
+        setUser(null);
+      }
+      
+      console.log('✅ Auth initialization complete');
+      setIsLoading(false);
+    };
+
     initializeAuth();
   }, []);
 
   const login = async (email: string, password: string) => {
-    const response = await authService.login(email, password);
-    setUser(response.user);
+    console.log('🔐 Attempting login...');
+    try {
+      const response = await authService.login(email, password);
+      console.log('✅ Login successful:', response.user);
+      setUser(response.user);
+    } catch (error) {
+      console.error('❌ Login failed:', error);
+      throw error;
+    }
   };
 
   const register = async (name: string, email: string, password: string) => {
-    const response = await authService.register(name, email, password);
-    setUser(response.user);
+    console.log('📝 Attempting registration...');
+    try {
+      const response = await authService.register(name, email, password);
+      console.log('✅ Registration successful:', response.user);
+      setUser(response.user);
+    } catch (error) {
+      console.error('❌ Registration failed:', error);
+      throw error;
+    }
   };
 
   const logout = async () => {
-    await authService.logout();
-    setUser(null);
+    console.log('🚪 Logging out...');
+    try {
+      await authService.logout();
+      console.log('✅ Logout successful');
+      setUser(null);
+    } catch (error) {
+      console.error('❌ Logout error:', error);
+      // Still clear user state even if server logout fails
+      setUser(null);
+    }
   };
 
   const updateProfile = async (type: 'name' | 'email' | 'password', value: string) => {
@@ -69,6 +103,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
   };
+
+  console.log('🔄 Auth state:', { user: !!user, isLoading });
 
   return (
     <AuthContext.Provider

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -25,9 +25,13 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const { login } = useAuth();
   const router = useRouter();
-
+  const { login,user, isLoading:authLoading } = useAuth();
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.push('/dashboard');
+    }
+  }, [user, authLoading, router]);
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -47,7 +51,7 @@ export default function LoginPage() {
       
       // Delay navigation to show success animation
       setTimeout(() => {
-        router.push('/dashboard');
+        window.location.reload();
       }, 1200);
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || 'Login failed';

@@ -1,16 +1,17 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { ProtectedRoute } from '@/components/protected-route';
 import { Navbar } from '@/components/navbar';
 import { LinkShortenerForm } from '@/components/link-shortener-form';
 import { LinkList } from '@/components/link-list';
 import { TrendingUp, Link2, Zap, BarChart3 } from 'lucide-react';
+import { Link } from '@/lib/types';
 
 export default function DashboardPage() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
   const [statsAnimated, setStatsAnimated] = useState(false);
-
+  const [links, setLinks] = useState<Link[]>([]);
   useEffect(() => {
     setIsVisible(true);
     const timer = setTimeout(() => setStatsAnimated(true), 600);
@@ -21,40 +22,47 @@ export default function DashboardPage() {
     setRefreshTrigger(prev => prev + 1);
   };
 
-  const stats = [
-    { 
-      icon: Link2, 
-      label: 'Total Links', 
-      value: '0', 
-      color: 'from-blue-500 to-cyan-500',
-      bgColor: 'bg-blue-50',
-      iconColor: 'text-blue-600'
-    },
-    { 
-      icon: TrendingUp, 
-      label: 'Total Clicks', 
-      value: '0', 
-      color: 'from-green-500 to-emerald-500',
-      bgColor: 'bg-green-50',
-      iconColor: 'text-green-600'
-    },
-    { 
-      icon: BarChart3, 
-      label: 'Analytics', 
-      value: 'Pro', 
-      color: 'from-purple-500 to-pink-500',
-      bgColor: 'bg-purple-50',
-      iconColor: 'text-purple-600'
-    },
-    { 
-      icon: Zap, 
-      label: 'Performance', 
-      value: '98%', 
-      color: 'from-orange-500 to-red-500',
-      bgColor: 'bg-orange-50',
-      iconColor: 'text-orange-600'
-    }
-  ];
+  const stats = useMemo(() => {
+    const totalLinks = links.length;
+    const totalClicks = links.reduce((sum, link) => sum + link.total_clicks, 0);
+    const uniqueClicks = links.reduce((sum, link) => sum + link.unique_clicks, 0);
+    const activeLinks = links.filter(link => link.is_enabled).length;
+
+    return [
+      { 
+        icon: Link2, 
+        label: 'Total Links', 
+        value: totalLinks.toString(), 
+        color: 'from-blue-500 to-cyan-500',
+        bgColor: 'bg-blue-50',
+        iconColor: 'text-blue-600'
+      },
+      { 
+        icon: TrendingUp, 
+        label: 'Total Clicks', 
+        value: totalClicks.toString(), 
+        color: 'from-green-500 to-emerald-500',
+        bgColor: 'bg-green-50',
+        iconColor: 'text-green-600'
+      },
+      { 
+        icon: BarChart3, 
+        label: 'Unique Clicks', 
+        value: uniqueClicks.toString(), 
+        color: 'from-purple-500 to-pink-500',
+        bgColor: 'bg-purple-50',
+        iconColor: 'text-purple-600'
+      },
+      { 
+        icon: Zap, 
+        label: 'Active Links', 
+        value: activeLinks.toString(), 
+        color: 'from-orange-500 to-red-500',
+        bgColor: 'bg-orange-50',
+        iconColor: 'text-orange-600'
+      }
+    ];
+  }, [links]);
 
   return (
     <ProtectedRoute>
@@ -159,7 +167,7 @@ export default function DashboardPage() {
                   </div>
                   
                   <div className="p-6">
-                    <LinkList refreshTrigger={refreshTrigger} />
+                    <LinkList refreshTrigger={refreshTrigger} links={links} setLinks={setLinks} />
                   </div>
                   
                   {/* Decorative Elements */}
