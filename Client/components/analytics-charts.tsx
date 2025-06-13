@@ -38,7 +38,7 @@ export function AnalyticsCharts({ analytics }: AnalyticsChartsProps) {
   const [activeTab, setActiveTab] = useState('overview');
 
   // Transform data for charts
-  const transformObjectToArray = (obj: Record<string, number>, nameKey = 'name', valueKey = 'value') => {
+  const transformObjectToArray = (obj: Record<any, any>, nameKey = 'name', valueKey = 'value') => {
     return Object.entries(obj || {})
       .map(([key, value]) => ({ [nameKey]: key, [valueKey]: value }))
       .sort((a, b) => b[valueKey] - a[valueKey])
