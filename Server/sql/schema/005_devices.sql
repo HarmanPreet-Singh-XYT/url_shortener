@@ -10,6 +10,6 @@ CREATE TABLE devices(
     timezone TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL,
     FOREIGN KEY (click_id) REFERENCES clicks(id) ON DELETE CASCADE
-)
+);
 -- +goose down
 DROP TABLE devices;

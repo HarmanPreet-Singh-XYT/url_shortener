@@ -105,8 +105,8 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
 
 const updateUserEmail = `-- name: UpdateUserEmail :exec
 UPDATE users
-SET email = $2
-WHERE id = $1 AND updated_at = NOW()
+SET email = $2, updated_at = NOW()
+WHERE id = $1
 `
 
 type UpdateUserEmailParams struct {
@@ -121,8 +121,8 @@ func (q *Queries) UpdateUserEmail(ctx context.Context, arg UpdateUserEmailParams
 
 const updateUserName = `-- name: UpdateUserName :exec
 UPDATE users
-SET name = $2
-WHERE id = $1 AND updated_at = NOW()
+SET name = $2, updated_at = NOW()
+WHERE id = $1
 `
 
 type UpdateUserNameParams struct {
@@ -137,8 +137,8 @@ func (q *Queries) UpdateUserName(ctx context.Context, arg UpdateUserNameParams) 
 
 const updateUserPassword = `-- name: UpdateUserPassword :exec
 UPDATE users
-SET password = $2
-WHERE id = $1 AND updated_at = NOW()
+SET password = $2, updated_at = NOW()
+WHERE id = $1
 `
 
 type UpdateUserPasswordParams struct {

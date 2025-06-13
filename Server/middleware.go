@@ -15,9 +15,7 @@ import (
 
 func (cfg *apiCfg) checkAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-
 		authHeader := c.GetHeader("Authorization")
-
 		if authHeader == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is missing"})
 			c.AbortWithStatus(http.StatusUnauthorized)
@@ -46,39 +44,43 @@ func (cfg *apiCfg) checkAuth() gin.HandlerFunc {
 
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
-			c.Abort()
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
+			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
 
-		if float64(time.Now().Unix()) > claims["exp"].(float64) {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "token expired"})
+		exp, ok := claims["exp"].(float64)
+		if !ok || float64(time.Now().Unix()) > exp {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token expired"})
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
-		idToken, err := claims.GetSubject()
-		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "token retrieval failed"})
+
+		idToken, ok := claims["sub"].(string)
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid subject in token"})
 			c.AbortWithStatus(http.StatusUnauthorized)
+			return
 		}
+
 		id, err := uuid.Parse(idToken)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "token parse failed"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user ID"})
 			c.AbortWithStatus(http.StatusUnauthorized)
+			return
 		}
+
 		user, err := cfg.db.RetrieveUserById(c, id)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				// User not found
 				c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
-				return
+			} else {
+				c.AbortWithError(http.StatusInternalServerError, err)
 			}
-			// Some other DB error
-			c.AbortWithError(http.StatusInternalServerError, err)
+			return
 		}
 
 		c.Set("currentUser", user)
-
 		c.Next()
 	}
 }

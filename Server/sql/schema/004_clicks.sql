@@ -11,6 +11,6 @@ CREATE TABLE clicks(
     utm_campaign TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL,
     FOREIGN KEY (short_link_id) REFERENCES short_links(id) ON DELETE CASCADE
-)
+);
 -- +goose down
 DROP TABLE clicks;

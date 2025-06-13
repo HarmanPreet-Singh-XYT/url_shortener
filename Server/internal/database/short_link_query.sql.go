@@ -7,7 +7,6 @@ package database
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/google/uuid"
 )
@@ -206,18 +205,20 @@ func (q *Queries) RetrieveShortLinkByUserIdANDId(ctx context.Context, arg Retrie
 
 const toggleShortLink = `-- name: ToggleShortLink :exec
 UPDATE short_links
-SET is_active = $3,updated_at = NOW()
-WHERE slug = $1 AND user_id = $2
+SET
+  is_active = NOT is_active, -- Toggles the boolean value
+  updated_at = NOW()         -- Updates the timestamp to the current time
+WHERE
+  slug = $1 AND user_id = $2
 `
 
 type ToggleShortLinkParams struct {
-	Slug     string
-	UserID   uuid.UUID
-	IsActive sql.NullBool
+	Slug   string
+	UserID uuid.UUID
 }
 
 func (q *Queries) ToggleShortLink(ctx context.Context, arg ToggleShortLinkParams) error {
-	_, err := q.db.ExecContext(ctx, toggleShortLink, arg.Slug, arg.UserID, arg.IsActive)
+	_, err := q.db.ExecContext(ctx, toggleShortLink, arg.Slug, arg.UserID)
 	return err
 }
 

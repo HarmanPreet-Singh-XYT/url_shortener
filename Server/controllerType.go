@@ -46,9 +46,15 @@ type UserInfoReq struct {
 type Link struct {
 	Slug         string `json:"slug"`
 	OriginalURL  string `json:"original_url"`
+	IsActive     bool   `json:"is_enabled"`
 	CreatedAt    string `json:"created_at"`
 	TotalClicks  int    `json:"total_clicks"`
 	UniqueClicks int    `json:"unique_clicks"`
+	UTMSource    string `json:"utm_source"`
+	UTMMedium    string `json:"utm_medium"`
+	UTMCampaign  string `json:"utm_campaign"`
+	ShortURL     string `json:"short_url"`
+	UpdatedAt    string `json:"updated_at"`
 }
 type LinkReq struct {
 	URL         string `json:"original_url"`

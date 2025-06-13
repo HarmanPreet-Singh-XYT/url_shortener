@@ -34,7 +34,7 @@ func createToken(id uuid.UUID, expiry time.Duration, tokenSecret string) (string
 		"exp": time.Now().Add(expiry).Unix(), // Expiration time
 		"iat": time.Now().Unix(),             // Issued at
 	})
-	tokenString, err := claims.SignedString(tokenSecret)
+	tokenString, err := claims.SignedString([]byte(tokenSecret))
 	if err != nil {
 		return "", err
 	}

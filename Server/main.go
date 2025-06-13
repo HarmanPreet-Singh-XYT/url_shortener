@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/HarmanPreet-Singh-XYT/internal/database"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
@@ -47,7 +48,12 @@ func main() {
 	}
 
 	router := gin.Default()
-
+	config := cors.DefaultConfig()
+	config.AllowOrigins = []string{cfg.frontendOrigin}
+	config.AllowHeaders = []string{"Origin", "Content-Type", "Authorization"}
+	config.AllowMethods = []string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"}
+	config.AllowCredentials = true
+	router.Use(cors.New(config))
 	{
 		check := router.Group("/check")
 		check.GET("/", StatusCheck)

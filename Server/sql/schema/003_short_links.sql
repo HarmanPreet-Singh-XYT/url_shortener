@@ -7,10 +7,10 @@ CREATE TABLE short_links(
     utm_source TEXT NOT NULL,
     utm_medium TEXT NOT NULL,
     utm_campaign TEXT NOT NULL,
-    is_active BOOLEAN,
+    is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-)
+);
 -- +goose down
 DROP TABLE short_links;

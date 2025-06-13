@@ -26,7 +26,7 @@ func (cfg *apiCfg) registerUser(c *gin.Context) {
 	}
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(data.Password), bcrypt.DefaultCost)
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, gin.Error{Err: err})
+		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
 	userCreation, err := cfg.db.CreateUser(c, database.CreateUserParams{
@@ -42,12 +42,12 @@ func (cfg *apiCfg) registerUser(c *gin.Context) {
 				return
 			}
 		}
-		c.AbortWithError(http.StatusInternalServerError, gin.Error{Err: err})
+		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
 	refreshToken, err := createToken(userCreation.ID, time.Duration(time.Hour*24*7), cfg.jwtRefreshSecret)
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, gin.Error{Err: err})
+		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
 	errToken := cfg.db.CreateToken(c, database.CreateTokenParams{
@@ -55,12 +55,12 @@ func (cfg *apiCfg) registerUser(c *gin.Context) {
 		RefreshToken: refreshToken,
 	})
 	if errToken != nil {
-		c.AbortWithError(http.StatusInternalServerError, gin.Error{Err: err})
+		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
-	accessToken, err := createToken(userCreation.ID, time.Duration(time.Minute+15), cfg.jwtSecret)
+	accessToken, err := createToken(userCreation.ID, time.Duration(time.Minute*15), cfg.jwtSecret)
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, gin.Error{Err: err})
+		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
 	c.JSON(http.StatusOK, AuthRes{
@@ -95,31 +95,36 @@ func (cfg *apiCfg) loginUser(c *gin.Context) {
 	}
 	refreshToken, err := createToken(userInfo.ID, time.Duration(time.Hour*24*7), cfg.jwtRefreshSecret)
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, gin.Error{Err: err})
+		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
-	errToken := cfg.db.UpdateTokenByUserId(c, database.UpdateTokenByUserIdParams{
+
+	errToken := cfg.db.CreateToken(c, database.CreateTokenParams{
 		UserID:       userInfo.ID,
 		RefreshToken: refreshToken,
 	})
 	if errToken != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			errToken := cfg.db.CreateToken(c, database.CreateTokenParams{
-				UserID:       userInfo.ID,
-				RefreshToken: refreshToken,
-			})
-			if errToken != nil {
-				c.AbortWithError(http.StatusInternalServerError, gin.Error{Err: err})
-				return
+		var pqErr *pq.Error
+		if errors.As(errToken, &pqErr) {
+			if pqErr.Code == "23505" { // Unique violation
+				// If no token found, create one
+				errToken = cfg.db.UpdateTokenByUserId(c, database.UpdateTokenByUserIdParams{
+					UserID:       userInfo.ID,
+					RefreshToken: refreshToken,
+				})
+				if errToken != nil {
+					c.AbortWithError(http.StatusBadRequest, errToken)
+					return
+				}
 			}
 		} else {
-			c.AbortWithError(http.StatusInternalServerError, err)
+			c.AbortWithError(http.StatusInternalServerError, errToken)
 			return
 		}
 	}
-	accessToken, err := createToken(userInfo.ID, time.Duration(time.Minute+15), cfg.jwtSecret)
+	accessToken, err := createToken(userInfo.ID, time.Duration(time.Minute*15), cfg.jwtSecret)
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, gin.Error{Err: err})
+		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
 	c.JSON(http.StatusOK, AuthRes{
@@ -133,81 +138,75 @@ func (cfg *apiCfg) loginUser(c *gin.Context) {
 func (cfg *apiCfg) renewToken(c *gin.Context) {
 	var data TokenReq
 	if err := c.ShouldBindJSON(&data); err != nil {
-		c.AbortWithError(http.StatusBadRequest, gin.Error{Err: err})
+		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
+
 	tokDB, err := cfg.db.RetrieveTokenByToken(c, data.RefreshToken)
 	if err != nil {
-		c.AbortWithError(http.StatusBadRequest, gin.Error{Err: err})
+		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
-	tokenString := tokDB.RefreshToken
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+
+	token, err := jwt.Parse(tokDB.RefreshToken, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return []byte(cfg.jwtSecret), nil
+		return []byte(cfg.jwtRefreshSecret), nil
 	})
 	if err != nil || !token.Valid {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
-		c.AbortWithStatus(http.StatusUnauthorized)
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
 		return
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
-		c.Abort()
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 		return
 	}
 
-	if float64(time.Now().Unix()) > claims["exp"].(float64) {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "token expired"})
-		c.AbortWithStatus(http.StatusUnauthorized)
+	sub, ok := claims["sub"].(string)
+	if !ok {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token subject"})
 		return
 	}
-	idToken, err := claims.GetSubject()
+
+	id, err := uuid.Parse(sub)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "token retrieval failed"})
-		c.AbortWithStatus(http.StatusUnauthorized)
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Token parse failed"})
 		return
 	}
-	id, err := uuid.Parse(idToken)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "token parse failed"})
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
+
 	user, err := cfg.db.RetrieveUserById(c, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			// User not found
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
 			return
 		}
-		// Some other DB error
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
 
-	refreshToken, err := createToken(user.ID, time.Duration(time.Hour*24*7), cfg.jwtRefreshSecret)
+	refreshToken, err := createToken(user.ID, 7*24*time.Hour, cfg.jwtRefreshSecret)
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, gin.Error{Err: err})
+		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
-	errToken := cfg.db.UpdateTokenByUserId(c, database.UpdateTokenByUserIdParams{
+
+	if err := cfg.db.UpdateTokenByUserId(c, database.UpdateTokenByUserIdParams{
 		UserID:       user.ID,
 		RefreshToken: refreshToken,
-	})
-	if errToken != nil {
+	}); err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
-	accessToken, err := createToken(user.ID, time.Duration(time.Minute+15), cfg.jwtSecret)
+
+	accessToken, err := createToken(user.ID, time.Minute*15, cfg.jwtSecret)
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, gin.Error{Err: err})
+		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
+
 	c.JSON(http.StatusOK, AuthTokenRes{
 		RefreshToken: refreshToken,
 		AccessToken:  accessToken,
@@ -225,32 +224,55 @@ func (cfg *apiCfg) profileInfo(c *gin.Context) {
 }
 
 func (cfg *apiCfg) GetLinks(c *gin.Context) {
+	// Debug: Check if user authentication works
 	user := sortMiddlewareAuth(c)
+
 	var outputData []Link
+
+	// Retrieve short links for the user
 	data, err := cfg.db.RetrieveShortLinkByUserId(c, user.ID)
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, gin.Error{Err: err})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve links"})
 		return
 	}
+
+	// If no links found, return empty array instead of null
+	if len(data) == 0 {
+		c.JSON(http.StatusOK, []Link{})
+		return
+	}
+
+	// Process each link
 	for _, val := range data {
+
 		totalClicks, err := cfg.db.CountTotalClickByShortLinkId(c, val.ID)
 		if err != nil {
-			c.AbortWithError(http.StatusInternalServerError, gin.Error{Err: err})
+			fmt.Printf("Debug: Error counting total clicks: %v\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count total clicks"})
 			return
 		}
+
 		uniqueClicks, err := cfg.db.CountUniqueClickByShortLinkId(c, val.ID)
 		if err != nil {
-			c.AbortWithError(http.StatusInternalServerError, gin.Error{Err: err})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count unique clicks"})
 			return
 		}
+
 		outputData = append(outputData, Link{
 			Slug:         val.Slug,
 			OriginalURL:  val.OriginalUrl,
 			CreatedAt:    val.CreatedAt.String(),
 			TotalClicks:  int(totalClicks),
 			UniqueClicks: int(uniqueClicks),
+			UTMSource:    val.UtmSource,
+			UTMMedium:    val.UtmMedium,
+			UTMCampaign:  val.UtmCampaign,
+			IsActive:     val.IsActive.Bool,
+			UpdatedAt:    val.UpdatedAt.Time.String(),
+			ShortURL:     cfg.frontendOrigin + val.Slug,
 		})
 	}
+
 	c.JSON(http.StatusOK, gin.H{"data": outputData})
 }
 
@@ -258,7 +280,7 @@ func (cfg *apiCfg) shortenLink(c *gin.Context) {
 	user := sortMiddlewareAuth(c)
 	var data ShortenReq
 	if err := c.ShouldBindJSON(&data); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, gin.Error{Err: err})
+		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
 	if data.Slug == "" {
@@ -280,7 +302,7 @@ func (cfg *apiCfg) shortenLink(c *gin.Context) {
 				return
 			}
 		}
-		c.AbortWithError(http.StatusInternalServerError, gin.Error{Err: err})
+		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
 
@@ -405,7 +427,6 @@ func (cfg *apiCfg) ProfileUpdate(c *gin.Context) {
 		return
 	}
 	if data.ResourceType == "email" {
-
 		err := cfg.db.UpdateUserEmail(c, database.UpdateUserEmailParams{ID: user.ID, Email: data.Value})
 		if err != nil {
 			var pqErr *pq.Error
@@ -415,7 +436,7 @@ func (cfg *apiCfg) ProfileUpdate(c *gin.Context) {
 					return
 				}
 			}
-			c.AbortWithError(http.StatusInternalServerError, gin.Error{Err: err})
+			c.AbortWithError(http.StatusBadRequest, err)
 			return
 		}
 	} else if data.ResourceType == "name" {
@@ -430,12 +451,12 @@ func (cfg *apiCfg) ProfileUpdate(c *gin.Context) {
 	} else if data.ResourceType == "password" {
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(data.Value), bcrypt.DefaultCost)
 		if err != nil {
-			c.AbortWithError(http.StatusInternalServerError, gin.Error{Err: err})
+			c.AbortWithError(http.StatusBadRequest, err)
 			return
 		}
 		errDB := cfg.db.UpdateUserPassword(c, database.UpdateUserPasswordParams{ID: user.ID, Password: string(hashedPassword)})
 		if errDB != nil {
-			c.AbortWithError(http.StatusInternalServerError, gin.Error{Err: err})
+			c.AbortWithError(http.StatusBadRequest, err)
 			return
 		}
 	}
@@ -450,8 +471,8 @@ func (cfg *apiCfg) ToggleLink(c *gin.Context) {
 		return
 	}
 	err := cfg.db.ToggleShortLink(c, database.ToggleShortLinkParams{
-		UserID: user.ID,
 		Slug:   slug,
+		UserID: user.ID,
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -558,6 +579,10 @@ func (cfg *apiCfg) RedirectLink(c *gin.Context) {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
-	c.JSON(http.StatusPermanentRedirect, RedirectResponse{OriginalURL: linkData.OriginalUrl})
+	if !linkData.IsActive.Bool {
+		c.JSON(http.StatusMethodNotAllowed, RedirectResponse{OriginalURL: ""})
+		return
+	}
+	c.JSON(http.StatusOK, RedirectResponse{OriginalURL: linkData.OriginalUrl})
 	go cfg.SaveAnalytics(c, linkData.ID, data)
 }

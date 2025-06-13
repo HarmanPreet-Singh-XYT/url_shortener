@@ -6,6 +6,6 @@ CREATE TABLE users(
     password TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP
-)
+);
 -- +goose down
 DROP TABLE users;

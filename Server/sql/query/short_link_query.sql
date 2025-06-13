@@ -28,8 +28,11 @@ VALUES(
 ) RETURNING *;
 -- name: ToggleShortLink :exec
 UPDATE short_links
-SET is_active = $3,updated_at = NOW()
-WHERE slug = $1 AND user_id = $2;
+SET
+  is_active = NOT is_active, -- Toggles the boolean value
+  updated_at = NOW()         -- Updates the timestamp to the current time
+WHERE
+  slug = $1 AND user_id = $2; 
 -- name: UpdateShortLinkSlug :exec
 UPDATE short_links
 SET slug = $3,updated_at = NOW()

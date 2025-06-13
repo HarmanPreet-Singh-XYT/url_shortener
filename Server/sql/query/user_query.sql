@@ -19,13 +19,13 @@ SET name = $2, email = $3, password = $4, updated_at = NOW()
 WHERE id = $1;
 -- name: UpdateUserName :exec
 UPDATE users
-SET name = $2
-WHERE id = $1 AND updated_at = NOW();
+SET name = $2, updated_at = NOW()
+WHERE id = $1;
 -- name: UpdateUserEmail :exec
 UPDATE users
-SET email = $2
-WHERE id = $1 AND updated_at = NOW();
+SET email = $2, updated_at = NOW()
+WHERE id = $1;
 -- name: UpdateUserPassword :exec
 UPDATE users
-SET password = $2
-WHERE id = $1 AND updated_at = NOW();
+SET password = $2, updated_at = NOW()
+WHERE id = $1;
