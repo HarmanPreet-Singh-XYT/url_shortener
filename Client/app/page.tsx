@@ -90,7 +90,7 @@ export default function HomePage() {
         {/* Grid pattern */}
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:50px_50px] animate-pulse"></div>
       </div>
-
+      <a href='https://bolt.new'><img className='absolute top-5 right-5 w-[75px] w-[75px]' src='white_circle_360x360.png'/></a>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10">
         {/* Enhanced Hero Section */}
         <div className={`text-center mb-20 transition-all duration-1000 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
