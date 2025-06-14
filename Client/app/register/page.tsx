@@ -37,6 +37,7 @@ export default function RegisterPage() {
   const [isSuccess, setIsSuccess] = useState(false);
   const { register: registerUser, user, isLoading: authLoading } = useAuth();
   const router = useRouter();
+
   useEffect(() => {
     if (!authLoading && user) {
       router.push('/dashboard');
@@ -183,7 +184,7 @@ export default function RegisterPage() {
               
               {isLoading && (
                 <div className="space-y-2">
-                  <Progress value={(registrationStep / 3) * 100} className="h-2" />
+                  {/* <Progress value={(registrationStep / 3) * 100} className="h-2" /> */}
                   <div className="text-sm text-center text-gray-500">
                     {registrationStep === 1 && "Validating information..."}
                     {registrationStep === 2 && "Creating your account..."}
