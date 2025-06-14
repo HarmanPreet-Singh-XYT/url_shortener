@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  secure-go-server:
+    build: .
+    ports:
+      - "4700:4700"
+      - "80:80"
+    environment:
+      - PORT=4700
+      - DOMAIN=${DOMAIN}
+      - DATABASE_LINK=${DATABASE_LINK}
+      - FRONTEND_ORIGIN=${FRONTEND_ORIGIN}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+    volumes:
+      - ./certs:/certs
+    restart: unless-stopped
